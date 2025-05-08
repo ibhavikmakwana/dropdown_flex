@@ -1,39 +1,63 @@
-<!--
-This README describes the package. If you publish this package to pub.dev,
-this README's contents appear on the landing page for your package.
+# 📦 dropdown_flex
 
-For information about how to write a good package README, see the guide for
-[writing package pages](https://dart.dev/tools/pub/writing-package-pages).
+A customizable and flexible dropdown menu widget for Flutter with enhanced search, filtering, autofocus scroll-to-highlight, and trailing/leading icon support. Built to fix native dropdown limitations like scroll issues and gesture inconsistencies.
 
-For general information about developing packages, see the Dart guide for
-[creating packages](https://dart.dev/guides/libraries/create-packages)
-and the Flutter guide for
-[developing packages and plugins](https://flutter.dev/to/develop-packages).
--->
+---
 
-TODO: Put a short description of the package here that helps potential users
-know whether this package might be useful for them.
+## ✨ Features
 
-## Features
+- customizable dropdown menu
+- Optional leading/trailing icons
+- Scroll-to-highlight support
+- Optional search and filter
+- Supports custom width and height
+- Fixes native Flutter dropdown limitations
 
-TODO: List what your package can do. Maybe include images, gifs, or videos.
+---
 
-## Getting started
+## 🚀 Installation
 
-TODO: List prerequisites and provide or point to information on how to
-start using the package.
+Add this to your `pubspec.yaml`:
+
+```yaml
+dependencies:
+  dropdown_flex: ^0.0.1
+```
 
 ## Usage
 
-TODO: Include short and useful examples for package users. Add longer examples
-to `/example` folder.
-
 ```dart
-const like = 'sample';
+import 'package:dropdown_flex/dropdown_flex.dart';
+
+final List<String> options = ['Apple', 'Banana', 'Cherry'];
+
+CustomDropdownMenu<String>(
+  menuHeight: 300.0,
+  width: 200,
+  focusNode: FocusNode(),
+  dropdownMenuEntries: [
+    for (var item in options)
+      FlexDropdownMenuEntry<String>(
+        value: item,
+        label: item,
+      ),
+  ],
+  searchCallback: (entries, query) {
+    if (query.isEmpty) return null;
+    final int index = entries.indexWhere(
+      (entry) => entry.label == query,
+    );
+    return index != -1 ? index : null;
+  },
+  trailingIcon: const Icon(Icons.keyboard_arrow_down_rounded, size: 24),
+  selectedTrailingIcon: const Icon(Icons.keyboard_arrow_up_rounded, size: 24),
+  hintText: "Select...",
+  enableFilter: true,
+  enableSearch: true,
+  requestFocusOnTap: true,
+  onSelected: (value) {
+    print("Selected: $value");
+  },
+)
+
 ```
-
-## Additional information
-
-TODO: Tell users more about the package: where to find more information, how to
-contribute to the package, how to file issues, what response they can expect
-from the package authors, and more.
