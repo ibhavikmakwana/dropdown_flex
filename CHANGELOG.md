@@ -1,4 +1,4 @@
-## [1.0.0] - 2025-05-08
+## [0.0.1] - 2025-05-08
 
 ### Added
 - Initial release of `dropdown_flex`.
