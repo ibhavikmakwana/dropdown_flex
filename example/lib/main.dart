@@ -41,38 +41,78 @@ class _MyHomePageState extends State<MyHomePage> {
         title: Text(widget.title),
       ),
       body: Center(
-        child: CustomDropdownMenu<String>(
-          menuHeight: 300.0,
-          width: 200,
-          focusNode: FocusNode(),
-          dropdownMenuEntries: [
-            for (var item in options)
-              FlexDropdownMenuEntry<String>(
-                value: item,
-                label: item,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            CustomDropdownMenu<String>(
+              menuHeight: 300.0,
+              width: 200,
+              focusNode: FocusNode(),
+              dropdownMenuEntries: [
+                for (var item in options)
+                  FlexDropdownMenuEntry<String>(
+                    value: item,
+                    label: item,
+                  ),
+              ],
+              searchCallback: (entries, query) {
+                if (query.isEmpty) {
+                  return null;
+                }
+                final int index =
+                    entries.indexWhere((FlexDropdownMenuEntry<String> entry) => entry.label == query);
+                return index != -1 ? index : null;
+              },
+              trailingIcon: const Icon(
+                Icons.keyboard_arrow_down_rounded,
+                size: 24,
               ),
-          ],
-          searchCallback: (entries, query) {
-            if (query.isEmpty) {
-              return null;
-            }
-            final int index =
+              selectedTrailingIcon: const Icon(
+                Icons.keyboard_arrow_up_rounded,
+                size: 24,
+              ),
+              hintText: "Select...",
+              enableFilter: true,
+              enableSearch: true,
+              requestFocusOnTap: true,
+              onSelected: (value) {},
+            ),
+            const SizedBox(height: 20),
+            CustomDropdownMenu<String>(
+              menuHeight: 300.0,
+              width: 200,
+              focusNode: FocusNode(),
+              dropdownMenuEntries: [
+                for (var item in options)
+                  FlexDropdownMenuEntry<String>(
+                    value: item,
+                    label: item,
+                  ),
+              ],
+              searchCallback: (entries, query) {
+                if (query.isEmpty) {
+                  return null;
+                }
+                final int index =
                 entries.indexWhere((FlexDropdownMenuEntry<String> entry) => entry.label == query);
-            return index != -1 ? index : null;
-          },
-          trailingIcon: const Icon(
-            Icons.keyboard_arrow_down_rounded,
-            size: 24,
-          ),
-          selectedTrailingIcon: const Icon(
-            Icons.keyboard_arrow_up_rounded,
-            size: 24,
-          ),
-          hintText: "Select...",
-          enableFilter: true,
-          enableSearch: true,
-          requestFocusOnTap: true,
-          onSelected: (value) {},
+                return index != -1 ? index : null;
+              },
+              trailingIcon: const Icon(
+                Icons.keyboard_arrow_down_rounded,
+                size: 24,
+              ),
+              selectedTrailingIcon: const Icon(
+                Icons.keyboard_arrow_up_rounded,
+                size: 24,
+              ),
+              hintText: "Select...",
+              enableFilter: true,
+              enableSearch: true,
+              requestFocusOnTap: true,
+              onSelected: (value) {},
+            ),
+          ],
         ),
       ),
     );
