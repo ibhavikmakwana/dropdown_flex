@@ -470,8 +470,8 @@ class CustomDropdownMenu<T> extends StatefulWidget {
 }
 
 class _DropdownMenuState<T> extends State<CustomDropdownMenu<T>> {
-  final GlobalObjectKey _anchorKey = GlobalObjectKey("anchorKey");
-  final GlobalObjectKey _leadingKey = GlobalObjectKey("leadingKey");
+  final GlobalObjectKey _anchorKey = GlobalObjectKey(UniqueKey());
+  final GlobalObjectKey _leadingKey = GlobalObjectKey(UniqueKey());
   late List<GlobalObjectKey> buttonItemKeys;
   final MenuController _controller = MenuController();
   bool _enableFilter = false;
