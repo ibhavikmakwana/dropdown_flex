@@ -60,8 +60,9 @@ class _MyHomePageState extends State<MyHomePage> {
                 if (query.isEmpty) {
                   return null;
                 }
-                final int index =
-                    entries.indexWhere((FlexDropdownMenuEntry<String> entry) => entry.label == query);
+                final int index = entries.indexWhere(
+                    (FlexDropdownMenuEntry<String> entry) =>
+                        entry.label == query);
                 return index != -1 ? index : null;
               },
               trailingIcon: const Icon(
@@ -94,8 +95,9 @@ class _MyHomePageState extends State<MyHomePage> {
                 if (query.isEmpty) {
                   return null;
                 }
-                final int index =
-                entries.indexWhere((FlexDropdownMenuEntry<String> entry) => entry.label == query);
+                final int index = entries.indexWhere(
+                    (FlexDropdownMenuEntry<String> entry) =>
+                        entry.label == query);
                 return index != -1 ? index : null;
               },
               trailingIcon: const Icon(
