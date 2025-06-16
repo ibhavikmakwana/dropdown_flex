@@ -1,6 +1,6 @@
 name: dropdown_flex
 description: "A flexible Flutter dropdown widget with customizable design and a fix for the auto-focus scroll issue when navigating via keyboard."
-version: 0.0.2
+version: 0.0.3
 repository: https://github.com/ibhavikmakwana/dropdown_flex
 issue_tracker: https://github.com/ibhavikmakwana/dropdown_flex/issues
 

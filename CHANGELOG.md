@@ -1,3 +1,8 @@
+## [0.0.3] - 2025-06-16
+
+### Added
+- Added support for PaginatedDropdown widget.
+
 ## [0.0.2] - 2025-06-12
 
 ### Fixed
