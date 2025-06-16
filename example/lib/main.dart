@@ -56,9 +56,11 @@ class _MyHomePageState extends State<MyHomePage> {
     });
 
     final response = await http.get(
-      Uri.parse('https://api.escuelajs.co/api/v1/products?offset=$_offset&limit=$_limit'),
+      Uri.parse(
+          'https://api.escuelajs.co/api/v1/products?offset=$_offset&limit=$_limit'),
     );
-    print("Fetching items from API: offset=$_offset, limit=$_limit, status=${response.statusCode}");
+    print(
+        "Fetching items from API: offset=$_offset, limit=$_limit, status=${response.statusCode}");
     if (response.statusCode == 200) {
       final List<dynamic> data = json.decode(response.body);
       final newItems = data.map((item) => item['title'] as String).toList();
@@ -93,7 +95,8 @@ class _MyHomePageState extends State<MyHomePage> {
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Text("Dropdown Flex Example", style: Theme.of(context).textTheme.headlineMedium),
+          Text("Dropdown Flex Example",
+              style: Theme.of(context).textTheme.headlineMedium),
           Row(
             children: [
               CustomDropdownMenu<String>(
@@ -111,8 +114,9 @@ class _MyHomePageState extends State<MyHomePage> {
                   if (query.isEmpty) {
                     return null;
                   }
-                  final int index = entries
-                      .indexWhere((FlexDropdownMenuEntry<String> entry) => entry.label == query);
+                  final int index = entries.indexWhere(
+                      (FlexDropdownMenuEntry<String> entry) =>
+                          entry.label == query);
                   return index != -1 ? index : null;
                 },
                 trailingIcon: const Icon(
@@ -145,8 +149,9 @@ class _MyHomePageState extends State<MyHomePage> {
                   if (query.isEmpty) {
                     return null;
                   }
-                  final int index = entries
-                      .indexWhere((FlexDropdownMenuEntry<String> entry) => entry.label == query);
+                  final int index = entries.indexWhere(
+                      (FlexDropdownMenuEntry<String> entry) =>
+                          entry.label == query);
                   return index != -1 ? index : null;
                 },
                 trailingIcon: const Icon(
@@ -185,8 +190,8 @@ class _MyHomePageState extends State<MyHomePage> {
                 ),
                 textStyle: TextStyle(color: Colors.black),
                 highlightColor: Colors.orange.shade100,
-                highlightTextStyle:
-                    TextStyle(fontWeight: FontWeight.bold, color: Colors.deepOrange),
+                highlightTextStyle: TextStyle(
+                    fontWeight: FontWeight.bold, color: Colors.deepOrange),
                 onItemSelected: (val) {
                   preselectedItemOne = val;
                 },
@@ -206,8 +211,8 @@ class _MyHomePageState extends State<MyHomePage> {
                 ),
                 textStyle: TextStyle(color: Colors.black),
                 highlightColor: Colors.orange.shade100,
-                highlightTextStyle:
-                    TextStyle(fontWeight: FontWeight.bold, color: Colors.deepOrange),
+                highlightTextStyle: TextStyle(
+                    fontWeight: FontWeight.bold, color: Colors.deepOrange),
                 onItemSelected: (val) {
                   preselectedItemTwo = val;
                 },

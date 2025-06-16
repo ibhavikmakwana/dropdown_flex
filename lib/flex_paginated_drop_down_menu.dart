@@ -46,7 +46,8 @@ class CustomPaginatedDropdown extends StatefulWidget {
   });
 
   @override
-  State<CustomPaginatedDropdown> createState() => _CustomPaginatedDropdownState();
+  State<CustomPaginatedDropdown> createState() =>
+      _CustomPaginatedDropdownState();
 }
 
 class _CustomPaginatedDropdownState extends State<CustomPaginatedDropdown> {
@@ -81,7 +82,8 @@ class _CustomPaginatedDropdownState extends State<CustomPaginatedDropdown> {
   void _initializeItems() {
     _filteredItems = List.from(widget.items);
 
-    if (widget.preselectedItem != null && widget.items.contains(widget.preselectedItem)) {
+    if (widget.preselectedItem != null &&
+        widget.items.contains(widget.preselectedItem)) {
       _selectedItem = widget.preselectedItem;
       _highlightedIndex = widget.items.indexOf(widget.preselectedItem!);
     }
@@ -143,12 +145,14 @@ class _CustomPaginatedDropdownState extends State<CustomPaginatedDropdown> {
 
         // Find exact match or set to first item
         final exactMatchIndex = _filteredItems.indexWhere((item) {
-          final normalizedItem = widget.caseSensitive ? item : item.toLowerCase();
+          final normalizedItem =
+              widget.caseSensitive ? item : item.toLowerCase();
           return normalizedItem == normalizedQuery;
         });
 
-        _highlightedIndex =
-            exactMatchIndex != -1 ? exactMatchIndex : (_filteredItems.isNotEmpty ? 0 : -1);
+        _highlightedIndex = exactMatchIndex != -1
+            ? exactMatchIndex
+            : (_filteredItems.isNotEmpty ? 0 : -1);
       }
     });
 
@@ -158,7 +162,8 @@ class _CustomPaginatedDropdownState extends State<CustomPaginatedDropdown> {
   }
 
   void _cleanupItemKeys() {
-    final validIndices = Set<int>.from(List.generate(_filteredItems.length, (index) => index));
+    final validIndices =
+        Set<int>.from(List.generate(_filteredItems.length, (index) => index));
     _itemKeys.removeWhere((key, value) => !validIndices.contains(key));
   }
 
@@ -291,13 +296,17 @@ class _CustomPaginatedDropdownState extends State<CustomPaginatedDropdown> {
     return Container(
       key: key,
       height: widget.itemHeight,
-      color: isHighlighted ? (widget.highlightColor ?? Theme.of(context).highlightColor) : null,
+      color: isHighlighted
+          ? (widget.highlightColor ?? Theme.of(context).highlightColor)
+          : null,
       child: ListTile(
         title: Text(
           item,
           style: isHighlighted
               ? (widget.highlightTextStyle ??
-                  TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).primaryColor))
+                  TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).primaryColor))
               : widget.textStyle,
         ),
         onTap: () => _selectItem(item),
@@ -324,7 +333,8 @@ class _CustomPaginatedDropdownState extends State<CustomPaginatedDropdown> {
           _startKeyRepeat(() => _moveHighlight(down: false));
           break;
         case LogicalKeyboardKey.enter:
-          if (_highlightedIndex >= 0 && _highlightedIndex < _filteredItems.length) {
+          if (_highlightedIndex >= 0 &&
+              _highlightedIndex < _filteredItems.length) {
             _selectItem(_filteredItems[_highlightedIndex]);
           }
           break;
@@ -370,7 +380,8 @@ class _CustomPaginatedDropdownState extends State<CustomPaginatedDropdown> {
   }
 
   void _scrollToHighlighted() {
-    if (_highlightedIndex < 0 || _highlightedIndex >= _filteredItems.length) return;
+    if (_highlightedIndex < 0 || _highlightedIndex >= _filteredItems.length)
+      return;
 
     final key = _itemKeys[_highlightedIndex];
     if (key?.currentContext == null) return;
@@ -384,7 +395,8 @@ class _CustomPaginatedDropdownState extends State<CustomPaginatedDropdown> {
   }
 
   void _scrollToHighlightedImmediate() {
-    if (_highlightedIndex < 0 || _highlightedIndex >= _filteredItems.length) return;
+    if (_highlightedIndex < 0 || _highlightedIndex >= _filteredItems.length)
+      return;
 
     // For immediate scrolling when overlay opens, use direct scroll position calculation
     final targetOffset = _highlightedIndex * widget.itemHeight;
@@ -392,7 +404,8 @@ class _CustomPaginatedDropdownState extends State<CustomPaginatedDropdown> {
     final viewportHeight = widget.maxHeight;
 
     // Calculate optimal scroll position to center the highlighted item
-    final centeredOffset = targetOffset - (viewportHeight / 2) + (widget.itemHeight / 2);
+    final centeredOffset =
+        targetOffset - (viewportHeight / 2) + (widget.itemHeight / 2);
     final clampedOffset = centeredOffset.clamp(0.0, maxScrollExtent);
 
     if (_scrollController.hasClients) {
@@ -420,9 +433,10 @@ class _CustomPaginatedDropdownState extends State<CustomPaginatedDropdown> {
     if (widget.items != oldWidget.items) {
       final currentText = _controller.text;
       // Preserve highlighted item during load more
-      final itemToPreserve = (_highlightedIndex >= 0 && _highlightedIndex < _filteredItems.length)
-          ? _filteredItems[_highlightedIndex]
-          : null;
+      final itemToPreserve =
+          (_highlightedIndex >= 0 && _highlightedIndex < _filteredItems.length)
+              ? _filteredItems[_highlightedIndex]
+              : null;
 
       // Update items and refilter
       _filteredItems = List.from(widget.items);
