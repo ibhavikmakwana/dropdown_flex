@@ -1,10 +1,6 @@
-// lib/custom_paginated_dropdown.dart
-
-library;
-
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 
 class CustomPaginatedDropdown extends StatefulWidget {
@@ -14,6 +10,8 @@ class CustomPaginatedDropdown extends StatefulWidget {
   final bool isLoading;
   final double itemHeight;
   final double maxHeight;
+  final double width;
+  final double maxWidth;
   final InputDecoration? inputDecoration;
   final TextStyle? highlightTextStyle;
   final Color? highlightColor;
@@ -22,6 +20,8 @@ class CustomPaginatedDropdown extends StatefulWidget {
   final double keyRepeatDelayMs;
   final TextStyle? textStyle;
   final String? preselectedItem;
+  final bool enabled;
+  final bool caseSensitive;
 
   const CustomPaginatedDropdown({
     super.key,
@@ -31,14 +31,18 @@ class CustomPaginatedDropdown extends StatefulWidget {
     this.isLoading = false,
     this.itemHeight = 48.0,
     this.maxHeight = 300.0,
+    this.width = 300.0,
+    this.maxWidth = 500.0,
     this.inputDecoration,
     this.highlightTextStyle,
     this.highlightColor,
-    this.scrollAnimationDuration = const Duration(milliseconds: 200),
+    this.scrollAnimationDuration = const Duration(milliseconds: 100),
     this.scrollAnimationCurve = Curves.easeInOut,
-    this.keyRepeatDelayMs = 100,
+    this.keyRepeatDelayMs = 200,
     this.textStyle,
     this.preselectedItem,
+    this.enabled = true,
+    this.caseSensitive = false,
   });
 
   @override
@@ -46,63 +50,179 @@ class CustomPaginatedDropdown extends StatefulWidget {
 }
 
 class _CustomPaginatedDropdownState extends State<CustomPaginatedDropdown> {
-  final TextEditingController _controller = TextEditingController();
-  final ScrollController _scrollController = ScrollController();
-  final FocusNode _focusNode = FocusNode();
+  late final TextEditingController _controller;
+  late final ScrollController _scrollController;
+  late final FocusNode _focusNode;
+  late final FocusNode _textFieldFocusNode;
   final LayerLink _layerLink = LayerLink();
 
   List<String> _filteredItems = [];
   int _highlightedIndex = -1;
   OverlayEntry? _overlayEntry;
-  bool _userScrolling = false;
   Timer? _keyRepeatTimer;
+  Timer? _scrollDebounceTimer;
+  final Map<int, GlobalKey> _itemKeys = {};
+  bool _isOverlayVisible = false;
+  String? _selectedItem; // Track the actually selected item
 
-  void _filterItems(String query) {
-    final oldHighlightedValue =
-        (_highlightedIndex >= 0 && _highlightedIndex < _filteredItems.length)
-            ? _filteredItems[_highlightedIndex]
-            : null;
+  @override
+  void initState() {
+    super.initState();
 
-    final newFiltered =
-        widget.items.where((item) => item.toLowerCase().contains(query.toLowerCase())).toList();
+    _controller = TextEditingController(text: widget.preselectedItem ?? '');
+    _scrollController = ScrollController();
+    _focusNode = FocusNode();
+    _textFieldFocusNode = FocusNode();
 
-    int newHighlightedIndex = -1;
-    if (oldHighlightedValue != null) {
-      newHighlightedIndex = newFiltered.indexOf(oldHighlightedValue);
+    _initializeItems();
+    _setupListeners();
+  }
+
+  void _initializeItems() {
+    _filteredItems = List.from(widget.items);
+
+    if (widget.preselectedItem != null && widget.items.contains(widget.preselectedItem)) {
+      _selectedItem = widget.preselectedItem;
+      _highlightedIndex = widget.items.indexOf(widget.preselectedItem!);
+    }
+  }
+
+  void _setupListeners() {
+    _controller.addListener(_onTextChanged);
+
+    _textFieldFocusNode.addListener(() {
+      if (_textFieldFocusNode.hasFocus && !_isOverlayVisible) {
+        _showOverlay();
+      }
+    });
+
+    _focusNode.addListener(() {
+      if (!_focusNode.hasFocus && _isOverlayVisible) {
+        // Delay to allow tap events to register
+        Future.delayed(const Duration(milliseconds: 100), () {
+          if (!_focusNode.hasFocus && _isOverlayVisible) {
+            _removeOverlay();
+          }
+        });
+      }
+    });
+  }
+
+  void _onTextChanged() {
+    final query = _controller.text;
+
+    // Clear selected item if user is typing something different
+    if (_selectedItem != null && _selectedItem != query.trim()) {
+      _selectedItem = null;
     }
 
+    _filterItems(query);
+
+    if (!_isOverlayVisible && _textFieldFocusNode.hasFocus) {
+      _showOverlay();
+    }
+  }
+
+  void _filterItems(String query) {
+    final normalizedQuery = widget.caseSensitive ? query : query.toLowerCase();
+    _filteredItems = List.from(widget.items);
     setState(() {
-      _filteredItems = newFiltered;
-      _highlightedIndex = (_filteredItems.isNotEmpty && newHighlightedIndex >= 0)
-          ? newHighlightedIndex.clamp(0, _filteredItems.length - 1)
-          : -1;
+      if (query.isEmpty) {
+        // _filteredItems = List.from(widget.items);
+        // If there's a selected item, highlight it
+        if (_selectedItem != null) {
+          _highlightedIndex = _filteredItems.indexOf(_selectedItem!);
+        } else {
+          _highlightedIndex = -1;
+        }
+      } else {
+        // _filteredItems = widget.items.where((item) {
+        //   final normalizedItem = widget.caseSensitive ? item : item.toLowerCase();
+        //   return normalizedItem.contains(normalizedQuery);
+        // }).toList();
+
+        // Find exact match or set to first item
+        final exactMatchIndex = _filteredItems.indexWhere((item) {
+          final normalizedItem = widget.caseSensitive ? item : item.toLowerCase();
+          return normalizedItem == normalizedQuery;
+        });
+
+        _highlightedIndex =
+            exactMatchIndex != -1 ? exactMatchIndex : (_filteredItems.isNotEmpty ? 0 : -1);
+      }
     });
-    _highlightOverlay();
+
+    _cleanupItemKeys();
+    _scheduleScrollToHighlighted();
+    _refreshOverlay();
+  }
+
+  void _cleanupItemKeys() {
+    final validIndices = Set<int>.from(List.generate(_filteredItems.length, (index) => index));
+    _itemKeys.removeWhere((key, value) => !validIndices.contains(key));
   }
 
   void _showOverlay() {
-    if (_overlayEntry != null) {
-      return;
+    if (_isOverlayVisible) return;
+
+    _isOverlayVisible = true;
+    _focusNode.requestFocus();
+
+    // Set highlight to currently selected item when reopening
+    if (_selectedItem != null && _controller.text.trim() == _selectedItem) {
+      final selectedIndex = widget.items.indexOf(_selectedItem!);
+      if (selectedIndex != -1) {
+        _highlightedIndex = selectedIndex;
+      }
     }
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _removeOverlay();
+      if (!mounted) return;
+
       _overlayEntry = _createOverlay();
       Overlay.of(context).insert(_overlayEntry!);
-      _scrollToHighlighted();
+
+      // Wait for the ListView to be built and rendered
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _highlightedIndex >= 0) {
+          _scrollToHighlightedImmediate();
+        }
+      });
     });
   }
 
   void _removeOverlay() {
+    if (!_isOverlayVisible) return;
+
+    _isOverlayVisible = false;
     _overlayEntry?.remove();
     _overlayEntry = null;
+    _itemKeys.clear();
   }
 
-  void _highlightOverlay() {
-    _overlayEntry?.markNeedsBuild();
+  void _refreshOverlay() {
+    if (_isOverlayVisible && _overlayEntry != null) {
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _overlayEntry != null) {
+          _overlayEntry!.markNeedsBuild();
+        }
+      });
+    }
+  }
+
+  void _scheduleScrollToHighlighted() {
+    _scrollDebounceTimer?.cancel();
+    _scrollDebounceTimer = Timer(const Duration(milliseconds: 50), () {
+      if (mounted) _scrollToHighlighted();
+    });
   }
 
   OverlayEntry _createOverlay() {
-    final renderBox = context.findRenderObject() as RenderBox;
+    final renderBox = context.findRenderObject() as RenderBox?;
+    if (renderBox == null) {
+      return OverlayEntry(builder: (_) => const SizedBox.shrink());
+    }
+
     final size = renderBox.size;
 
     return OverlayEntry(
@@ -116,49 +236,7 @@ class _CustomPaginatedDropdownState extends State<CustomPaginatedDropdown> {
             elevation: 4.0,
             child: ConstrainedBox(
               constraints: BoxConstraints(maxHeight: widget.maxHeight),
-              child: NotificationListener<ScrollNotification>(
-                onNotification: (notification) {
-                  if (notification is UserScrollNotification) {
-                    _userScrolling = notification.direction != ScrollDirection.idle;
-                  }
-                  if (notification is ScrollEndNotification &&
-                      _scrollController.position.pixels ==
-                          _scrollController.position.maxScrollExtent) {
-                    widget.onLoadMore();
-                  }
-                  return false;
-                },
-                child: ListView.builder(
-                  controller: _scrollController,
-                  itemCount: _filteredItems.length + (widget.isLoading ? 1 : 0),
-                  itemBuilder: (context, index) {
-                    if (index == _filteredItems.length) {
-                      return const Padding(
-                        padding: EdgeInsets.all(12.0),
-                        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-                      );
-                    }
-                    final isHighlighted = index == _highlightedIndex;
-                    return Container(
-                      color: isHighlighted ? widget.highlightColor ?? Colors.blue.shade100 : null,
-                      child: ListTile(
-                        title: Text(
-                          _filteredItems[index],
-                          style: isHighlighted
-                              ? widget.highlightTextStyle ??
-                                  const TextStyle(fontWeight: FontWeight.bold)
-                              : null,
-                        ),
-                        onTap: () {
-                          _controller.text = _filteredItems[index];
-                          widget.onItemSelected?.call(_filteredItems[index]);
-                          _removeOverlay();
-                        },
-                      ),
-                    );
-                  },
-                ),
-              ),
+              child: _buildDropdownList(),
             ),
           ),
         ),
@@ -166,14 +244,93 @@ class _CustomPaginatedDropdownState extends State<CustomPaginatedDropdown> {
     );
   }
 
+  Widget _buildDropdownList() {
+    if (_filteredItems.isEmpty && !widget.isLoading) {
+      return const Padding(
+        padding: EdgeInsets.all(16.0),
+        child: Text('No items found'),
+      );
+    }
+
+    return NotificationListener<ScrollNotification>(
+      onNotification: _handleScrollNotification,
+      child: ListView.builder(
+        controller: _scrollController,
+        itemCount: _filteredItems.length + (widget.isLoading ? 1 : 0),
+        itemExtent: widget.itemHeight, // Add explicit item height
+        itemBuilder: _buildListItem,
+      ),
+    );
+  }
+
+  bool _handleScrollNotification(ScrollNotification notification) {
+    if (notification is ScrollEndNotification) {
+      const threshold = 100.0;
+      if (_scrollController.position.pixels >=
+          _scrollController.position.maxScrollExtent - threshold) {
+        SchedulerBinding.instance.addPostFrameCallback((_) {
+          widget.onLoadMore();
+        });
+      }
+    }
+    return false;
+  }
+
+  Widget _buildListItem(BuildContext context, int index) {
+    if (index == _filteredItems.length) {
+      return const Padding(
+        padding: EdgeInsets.all(12.0),
+        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+      );
+    }
+
+    final isHighlighted = index == _highlightedIndex;
+    final key = _itemKeys.putIfAbsent(index, () => GlobalKey());
+    final item = _filteredItems[index];
+
+    return Container(
+      key: key,
+      height: widget.itemHeight,
+      color: isHighlighted ? (widget.highlightColor ?? Theme.of(context).highlightColor) : null,
+      child: ListTile(
+        title: Text(
+          item,
+          style: isHighlighted
+              ? (widget.highlightTextStyle ??
+                  TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).primaryColor))
+              : widget.textStyle,
+        ),
+        onTap: () => _selectItem(item),
+      ),
+    );
+  }
+
+  void _selectItem(String item) {
+    _selectedItem = item; // Track the selected item
+    _controller.text = item;
+    widget.onItemSelected?.call(item);
+    _removeOverlay();
+  }
+
   void _onKeyEvent(KeyEvent event) {
-    if (event is KeyDownEvent) {
-      if (_keyRepeatTimer == null) {
-        if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+    if (!_isOverlayVisible || _filteredItems.isEmpty) return;
+
+    if (event is KeyDownEvent && _keyRepeatTimer == null) {
+      switch (event.logicalKey) {
+        case LogicalKeyboardKey.arrowDown:
           _startKeyRepeat(() => _moveHighlight(down: true));
-        } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+          break;
+        case LogicalKeyboardKey.arrowUp:
           _startKeyRepeat(() => _moveHighlight(down: false));
-        }
+          break;
+        case LogicalKeyboardKey.enter:
+          if (_highlightedIndex >= 0 && _highlightedIndex < _filteredItems.length) {
+            _selectItem(_filteredItems[_highlightedIndex]);
+          }
+          break;
+        case LogicalKeyboardKey.escape:
+          _removeOverlay();
+          break;
       }
     } else if (event is KeyUpEvent) {
       _stopKeyRepeat();
@@ -181,15 +338,22 @@ class _CustomPaginatedDropdownState extends State<CustomPaginatedDropdown> {
   }
 
   void _moveHighlight({required bool down}) {
+    if (_filteredItems.isEmpty) return;
+
     setState(() {
       if (down) {
-        _highlightedIndex = (_highlightedIndex + 1).clamp(0, _filteredItems.length - 1);
+        _highlightedIndex = _highlightedIndex < _filteredItems.length - 1
+            ? _highlightedIndex + 1
+            : 0; // Wrap to top
       } else {
-        _highlightedIndex = (_highlightedIndex - 1).clamp(0, _filteredItems.length - 1);
+        _highlightedIndex = _highlightedIndex > 0
+            ? _highlightedIndex - 1
+            : _filteredItems.length - 1; // Wrap to bottom
       }
     });
-    _scrollToHighlighted();
-    _highlightOverlay();
+
+    _scheduleScrollToHighlighted();
+    _refreshOverlay();
   }
 
   void _startKeyRepeat(VoidCallback action) {
@@ -206,73 +370,93 @@ class _CustomPaginatedDropdownState extends State<CustomPaginatedDropdown> {
   }
 
   void _scrollToHighlighted() {
-    if (_userScrolling) return;
     if (_highlightedIndex < 0 || _highlightedIndex >= _filteredItems.length) return;
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final itemOffset = _highlightedIndex * widget.itemHeight;
-      final scrollTo = itemOffset - (widget.maxHeight / 2) + (widget.itemHeight / 2);
-      _scrollController.animateTo(
-        scrollTo.clamp(
-          _scrollController.position.minScrollExtent,
-          _scrollController.position.maxScrollExtent,
-        ),
-        duration: widget.scrollAnimationDuration,
-        curve: widget.scrollAnimationCurve,
-      );
-    });
+    final key = _itemKeys[_highlightedIndex];
+    if (key?.currentContext == null) return;
+
+    Scrollable.ensureVisible(
+      key!.currentContext!,
+      duration: widget.scrollAnimationDuration,
+      curve: widget.scrollAnimationCurve,
+      alignment: 0.5,
+    );
   }
 
-  @override
-  void initState() {
-    super.initState();
-    _filteredItems = widget.items;
+  void _scrollToHighlightedImmediate() {
+    if (_highlightedIndex < 0 || _highlightedIndex >= _filteredItems.length) return;
 
-    if (widget.preselectedItem != null && widget.items.contains(widget.preselectedItem)) {
-      _controller.text = widget.preselectedItem!;
-      _highlightedIndex = widget.items.indexOf(widget.preselectedItem!);
+    // For immediate scrolling when overlay opens, use direct scroll position calculation
+    final targetOffset = _highlightedIndex * widget.itemHeight;
+    final maxScrollExtent = _scrollController.position.maxScrollExtent;
+    final viewportHeight = widget.maxHeight;
+
+    // Calculate optimal scroll position to center the highlighted item
+    final centeredOffset = targetOffset - (viewportHeight / 2) + (widget.itemHeight / 2);
+    final clampedOffset = centeredOffset.clamp(0.0, maxScrollExtent);
+
+    if (_scrollController.hasClients) {
+      _scrollController.jumpTo(clampedOffset);
+
+      // Also try ensureVisible as a fallback for better accuracy
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final key = _itemKeys[_highlightedIndex];
+        if (key?.currentContext != null) {
+          Scrollable.ensureVisible(
+            key!.currentContext!,
+            duration: const Duration(milliseconds: 200),
+            curve: widget.scrollAnimationCurve,
+            alignment: 0.5,
+          );
+        }
+      });
     }
-
-    _controller.addListener(() => _filterItems(_controller.text));
-    _focusNode.addListener(() {
-      if (!_focusNode.hasFocus) _removeOverlay();
-    });
   }
 
   @override
   void didUpdateWidget(covariant CustomPaginatedDropdown oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    if (_controller.text.isEmpty) {
-      double? offsetFromTop;
-      if (_highlightedIndex >= 0 && _scrollController.hasClients) {
-        offsetFromTop = _highlightedIndex * widget.itemHeight - _scrollController.offset;
-      }
-      setState(() {
-        _filteredItems = widget.items;
-      });
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_scrollController.hasClients && offsetFromTop != null) {
-          final target = _highlightedIndex * widget.itemHeight - offsetFromTop;
-          _scrollController.jumpTo(target.clamp(
-            _scrollController.position.minScrollExtent,
-            _scrollController.position.maxScrollExtent,
-          ));
-        }
-      });
-    } else {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _filterItems(_controller.text);
-      });
+    if (widget.items != oldWidget.items) {
+      final currentText = _controller.text;
+      // Preserve highlighted item during load more
+      final itemToPreserve = (_highlightedIndex >= 0 && _highlightedIndex < _filteredItems.length)
+          ? _filteredItems[_highlightedIndex]
+          : null;
+
+      // Update items and refilter
+      _filteredItems = List.from(widget.items);
+      _filterItemsPreservingHighlight(currentText, itemToPreserve);
     }
+  }
+
+  void _filterItemsPreservingHighlight(String query, String? preserveItem) {
+    setState(() {
+      // Simply assign all items without filtering
+      _filteredItems = List.from(widget.items);
+
+      // Try to restore previous highlight
+      if (preserveItem != null) {
+        _highlightedIndex = _filteredItems.indexOf(preserveItem);
+      } else {
+        _highlightedIndex = -1;
+      }
+    });
+
+    _cleanupItemKeys();
+    _scheduleScrollToHighlighted();
+    _refreshOverlay();
   }
 
   @override
   void dispose() {
-    _focusNode.dispose();
+    _keyRepeatTimer?.cancel();
+    _scrollDebounceTimer?.cancel();
+    _removeOverlay();
     _controller.dispose();
     _scrollController.dispose();
-    _keyRepeatTimer?.cancel();
+    _focusNode.dispose();
+    _textFieldFocusNode.dispose();
     super.dispose();
   }
 
@@ -283,15 +467,22 @@ class _CustomPaginatedDropdownState extends State<CustomPaginatedDropdown> {
       child: KeyboardListener(
         focusNode: _focusNode,
         onKeyEvent: _onKeyEvent,
-        child: TextField(
-          controller: _controller,
-          style: widget.textStyle,
-          decoration: widget.inputDecoration ??
-              const InputDecoration(
-                suffixIcon: Icon(Icons.arrow_drop_down),
-                hintText: 'Search & select...',
-              ),
-          onTap: _showOverlay,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            minWidth: widget.width,
+            maxWidth: widget.maxWidth,
+          ),
+          child: TextField(
+            focusNode: _textFieldFocusNode,
+            controller: _controller,
+            style: widget.textStyle,
+            decoration: widget.inputDecoration ??
+                const InputDecoration(
+                  suffixIcon: Icon(Icons.arrow_drop_down),
+                ),
+            enabled: widget.enabled,
+            onTap: _showOverlay,
+          ),
         ),
       ),
     );
